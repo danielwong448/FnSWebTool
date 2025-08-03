@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feeds and Speeds Calculator with Recommendations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        .result-card {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .btn {
+            transition: all 0.3s ease;
+        }
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-2xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Feeds & Speeds Calculator</h1>
+            <p class="mt-2 text-md text-gray-600">Calculate parameters or apply a recommended chipload for your material.</p>
+        </header>
+
+        <main class="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Input Section -->
+                <div class="input-group">
+                    <label for="flutes" class="block text-sm font-medium text-gray-700 mb-1">Number of Flutes</label>
+                    <input type="number" id="flutes" value="2" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="input-group">
+                    <label for="diameter" class="block text-sm font-medium text-gray-700 mb-1">Tool Diameter (in)</label>
+                    <input type="number" id="diameter" step="0.001" value="0.25" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="input-group">
+                    <label for="material" class="block text-sm font-medium text-gray-700 mb-1">Material</label>
+                    <select id="material" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="Softwood">Softwood (e.g., Pine)</option>
+                        <option value="Hardwood">Hardwood (e.g., Oak)</option>
+                        <option value="Aluminum" selected>Aluminum</option>
+                        <option value="Plastic">Plastic (e.g., Acrylic)</option>
+                        <option value="Mild Steel">Mild Steel</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="chipload" class="block text-sm font-medium text-gray-700 mb-1">Target Chipload (in/tooth)</label>
+                    <input type="number" id="chipload" step="0.0001" value="0.0020" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                 <div class="input-group col-span-1 md:col-span-2">
+                    <label for="mrr" class="block text-sm font-medium text-gray-700 mb-1">Target MRR (in³/min)</label>
+                    <input type="number" id="mrr" step="0.1" value="0.5" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="input-group col-span-1 md:col-span-2">
+                    <label for="rpm" class="block text-sm font-medium text-gray-700 mb-2">Spindle Speed (RPM)</label>
+                    <div class="flex items-center gap-4">
+                        <input type="range" id="rpm" min="10000" max="24000" value="18000" step="100" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="rpmValue" class="font-semibold text-indigo-600 w-20 text-center">18000</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button id="applyChiploadBtn" class="w-full bg-gray-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 btn">
+                    Apply Recommended Chipload
+                </button>
+                <button id="calculateBtn" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 btn">
+                    Calculate from MRR
+                </button>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results" class="result-card hidden">
+                <h2 class="text-2xl font-bold text-center mb-4 text-gray-800">Calculated Parameters</h2>
+                <div class="space-y-3 text-lg">
+                    <div class="flex justify-between">
+                        <span class="font-medium text-gray-600">Feed Rate:</span>
+                        <span id="feedRateResult" class="font-bold text-indigo-700"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="font-medium text-gray-600">Stepover (45%):</span>
+                        <span id="stepoverResult" class="font-bold text-indigo-700"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="font-medium text-gray-600">Axial Depth of Cut:</span>
+                        <span id="adocResult" class="font-bold text-indigo-700"></span>
+                    </div>
+                </div>
+                <div id="warning" class="mt-4 text-center text-yellow-600 font-medium hidden"></div>
+                <div class="mt-6 flex flex-col sm:flex-row justify-center gap-4">
+                    <button id="downloadPdfBtn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 btn">Download PDF</button>
+                    <button id="downloadCsvBtn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 btn">Download CSV (Excel)</button>
+                </div>
+            </div>
+        </main>
+
+        <footer class="text-center mt-8 text-sm text-gray-500">
+            <p>Note: Calculations are theoretical. Always start with conservative values and adjust based on machine performance and material.</p>
+        </footer>
+    </div>
+
+    <!-- Message Modal -->
+    <div id="messageModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <p id="modalMessage" class="mb-4 text-gray-700"></p>
+            <button id="modalCloseBtn" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 btn">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Element References ---
+        const flutesInput = document.getElementById('flutes');
+        const diameterInput = document.getElementById('diameter');
+        const chiploadInput = document.getElementById('chipload');
+        const mrrInput = document.getElementById('mrr');
+        const rpmSlider = document.getElementById('rpm');
+        const rpmValueSpan = document.getElementById('rpmValue');
+        const materialSelect = document.getElementById('material');
+        
+        const calculateBtn = document.getElementById('calculateBtn');
+        const applyChiploadBtn = document.getElementById('applyChiploadBtn');
+
+        const resultsDiv = document.getElementById('results');
+        const warningDiv = document.getElementById('warning');
+        
+        const feedRateResultSpan = document.getElementById('feedRateResult');
+        const stepoverResultSpan = document.getElementById('stepoverResult');
+        const adocResultSpan = document.getElementById('adocResult');
+        
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+
+        const messageModal = document.getElementById('messageModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+        // --- Data ---
+        const recommendedChiploads = {
+            "Softwood": 0.004,
+            "Hardwood": 0.003,
+            "Aluminum": 0.002,
+            "Plastic": 0.005,
+            "Mild Steel": 0.001
+        };
+        
+        // --- Global state for results ---
+        let calculatedResults = {};
+
+        // --- Event Listeners ---
+        rpmSlider.addEventListener('input', () => rpmValueSpan.textContent = rpmSlider.value);
+        calculateBtn.addEventListener('click', performCalculations);
+        applyChiploadBtn.addEventListener('click', applyRecommendedChipload);
+        downloadPdfBtn.addEventListener('click', downloadPdf);
+        downloadCsvBtn.addEventListener('click', downloadCsv);
+        modalCloseBtn.addEventListener('click', () => messageModal.classList.add('hidden'));
+        messageModal.addEventListener('click', (e) => {
+            if (e.target === messageModal) messageModal.classList.add('hidden');
+        });
+
+        // --- UI Functions ---
+        function showMessage(message) {
+            modalMessage.textContent = message;
+            messageModal.classList.remove('hidden');
+        }
+
+        function applyRecommendedChipload() {
+            const material = materialSelect.value;
+            const recommended = recommendedChiploads[material];
+            if (recommended) {
+                chiploadInput.value = recommended.toFixed(4);
+                showMessage(`Recommended chipload for ${material} (${recommended.toFixed(4)}) has been applied.`);
+            } else {
+                showMessage("No recommendation available for the selected material.");
+            }
+        }
+
+        // --- Core Calculation Logic ---
+        function performCalculations() {
+            const flutes = parseInt(flutesInput.value);
+            const diameter = parseFloat(diameterInput.value);
+            const chipload = parseFloat(chiploadInput.value);
+            const targetMrr = parseFloat(mrrInput.value);
+            const rpm = parseInt(rpmSlider.value);
+
+            if (isNaN(flutes) || isNaN(diameter) || isNaN(chipload) || isNaN(targetMrr) || isNaN(rpm) || flutes <= 0 || diameter <= 0 || chipload <= 0 || targetMrr <= 0) {
+                showMessage('Please enter valid, positive numbers for all inputs.');
+                return;
+            }
+
+            const feedRate = rpm * flutes * chipload;
+            if (feedRate === 0) {
+                showMessage('Calculated Feed Rate is zero. This will result in an infinite depth of cut. Please check your inputs.');
+                return;
+            }
+            const stepover = diameter * 0.45;
+            const axialDepthOfCut = targetMrr / (stepover * feedRate);
+
+            calculatedResults = {
+                flutes,
+                diameter: diameter.toFixed(4),
+                chipload: chipload.toFixed(4),
+                targetMrr: targetMrr.toFixed(3),
+                rpm,
+                feedRate: feedRate.toFixed(2),
+                stepover: stepover.toFixed(4),
+                axialDepthOfCut: axialDepthOfCut.toFixed(4),
+                material: materialSelect.value
+            };
+            
+            feedRateResultSpan.textContent = `${calculatedResults.feedRate} in/min`;
+            stepoverResultSpan.textContent = `${calculatedResults.stepover} in`;
+            adocResultSpan.textContent = `${calculatedResults.axialDepthOfCut} in`;
+
+            if (axialDepthOfCut > diameter * 2) {
+                warningDiv.textContent = 'Warning: Calculated Axial Depth of Cut is very high (more than 2x tool diameter). This may not be feasible.';
+                warningDiv.classList.remove('hidden');
+            } else {
+                warningDiv.classList.add('hidden');
+            }
+            
+            resultsDiv.classList.remove('hidden');
+        }
+
+        // --- Export Functionality ---
+        function downloadPdf() {
+            if (!calculatedResults.feedRate) {
+                showMessage("Please calculate the parameters first.");
+                return;
+            }
+            if (typeof window.jspdf === 'undefined') {
+                showMessage("Error: The PDF generation library (jsPDF) could not be loaded. Please check your internet connection.");
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(18);
+            doc.text("Feeds and Speeds Settings", 105, 20, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, 26, { align: 'center' });
+            
+            doc.setFontSize(12);
+            let yPos = 40;
+            const lineSpacing = 10;
+
+            const data = [
+                { label: "INPUTS", value: "" },
+                { label: "  Material:", value: `${calculatedResults.material}` },
+                { label: "  Tool Diameter:", value: `${calculatedResults.diameter} in` },
+                { label: "  Number of Flutes:", value: `${calculatedResults.flutes}` },
+                { label: "  Target Chipload:", value: `${calculatedResults.chipload} in/tooth` },
+                { label: "  Target MRR:", value: `${calculatedResults.targetMrr} in³/min` },
+                { label: "  Spindle Speed:", value: `${calculatedResults.rpm} RPM` },
+                { label: "", value: "" },
+                { label: "CALCULATED PARAMETERS", value: "" },
+                { label: "  Feed Rate:", value: `${calculatedResults.feedRate} in/min` },
+                { label: "  Stepover (45%):", value: `${calculatedResults.stepover} in` },
+                { label: "  Axial Depth of Cut:", value: `${calculatedResults.axialDepthOfCut} in` },
+            ];
+
+            data.forEach(item => {
+                doc.text(item.label, 20, yPos);
+                doc.text(item.value, 100, yPos);
+                yPos += lineSpacing;
+            });
+            
+            doc.save('feeds-and-speeds.pdf');
+        }
+
+        function downloadCsv() {
+             if (!calculatedResults.feedRate) {
+                showMessage("Please calculate the parameters first.");
+                return;
+            }
+
+            const headers = [ "Parameter", "Value", "Unit" ];
+            const rows = [
+                ["Material", calculatedResults.material, ""],
+                ["Tool Diameter", calculatedResults.diameter, "in"],
+                ["Number of Flutes", calculatedResults.flutes, ""],
+                ["Target Chipload", calculatedResults.chipload, "in/tooth"],
+                ["Target MRR", calculatedResults.targetMrr, "in³/min"],
+                ["Spindle Speed", calculatedResults.rpm, "RPM"],
+                ["---Calculated---", "---", "---"],
+                ["Feed Rate", calculatedResults.feedRate, "in/min"],
+                ["Stepover (45%)", calculatedResults.stepover, "in"],
+                ["Axial Depth of Cut", calculatedResults.axialDepthOfCut, "in"],
+            ];
+
+            let csvContent = "data:text/csv;charset=utf-8," 
+                + headers.join(",") + "\n"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "feeds-and-speeds.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+    </script>
+
+</body>
+</html>
